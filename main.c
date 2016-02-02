@@ -53,6 +53,7 @@ ISR(ADC_vect)
 
 int main(void)
 {
+    PORTC = 0b00000001; // enable pull-up resistor on ADC input
 	display_init();
 	adc_init();
 
