@@ -24,9 +24,14 @@
 
 #include "util.h"
 #include "display.h"
+#include "stepper.h"
 
 void adc_init()
 {
+    // enable pull-up resistor on ADC input
+    DDRC  &= 0b11111110;
+    PORTC |= 0b00000001; 
+
 	// power on the ADC
 	PRR &= ~(1 << PRADC);
 	
@@ -53,16 +58,29 @@ ISR(ADC_vect)
 
 int main(void)
 {
-    PORTC = 0b00000001; // enable pull-up resistor on ADC input
 	display_init();
-	adc_init();
+//	adc_init();
+	stepper_init();
 
 	// Enable interrupts
 	sei();
 	
-    for(;;)
+	uint16_t steps = 1;
+	for(;;)
 	{
-		Sleep(250);
+        while(steps <= 210)
+        {
+            display_number(steps);
+            step_cw();
+            Sleep(5);
+            steps += 1;
+        }
+        while(steps > 0)
+        {
+            display_number(steps);
+            step_ccw();
+            Sleep(2);
+            steps -= 1;
+        }
  	}
 }
-
