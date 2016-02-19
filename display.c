@@ -20,10 +20,10 @@ const uint8_t digits[10] PROGMEM = {
 
 void display_init()
 {
-	DDRB  = 0b00111110;
-	PORTB = 0b00000000;
-	DDRD  = 0b11111111;
-	PORTD = 0b00000000;
+	DDRB  =  0b00111110;
+	PORTB &= 0b11000001;
+	DDRD  =  0b11111111;
+	PORTD =  0b00000000;
 	
 	// prescaler 1/64; at 8MHz system clock, this gives us an overflow
 	// at 488 Hz, providing a per-digit refresh rate of 97.6 Hz.
@@ -33,8 +33,21 @@ void display_init()
 	// Output compare value A - controls blanking.
 	// In full brightness mode, we'll make this happen immediately before the refresh,
 	// In lower brightness modes, we'll make it happen sooner.
-	OCR0A = 127;
+	OCR0A = 128;
 
+    display_on();
+}
+
+
+void display_off()
+{
+    // Turn off display interrupts and turn digits off
+    TIMSK0 = 0;
+    DIGITS_OFF();
+}
+
+void display_on()
+{
 	// Enable overflow and compare match interrupts
     TIMSK0 = (1<<TOIE0) | (1<<OCIE0A);
 }

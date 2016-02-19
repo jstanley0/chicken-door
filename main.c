@@ -6,17 +6,16 @@
 // Licensed under GNU GPL v2 or later
 
 // Port assignments:
-// PB1..5 (output) = digit cathodes
+// PB0    (input)  = enter button
+// PB1..5 (output) = display digit cathodes
 // PC0    (input)  = photoresistor
-// PD0..7 (output) = segment anodes
+// PC1    (input)  = select button
+// PC2..5 (output) = stepper motor
+// PD0..7 (output) = display segment anodes
 
 // still need:
-// motor enable (PB0?)
 // xtal (PB6..7)
-// stepper (PC1..4)
-// two switches (PC5, ???)
-// hmm, probably put the switches on PB0..1, motor enable on PC5, 
-// ... move the colon to PD7, and lose the decimal points ???
+// motor enable?? might have to steal the colon or decimal point port for this
 
 #include <avr/io.h>
 #include <avr/interrupt.h>
@@ -59,28 +58,41 @@ ISR(ADC_vect)
 int main(void)
 {
 	display_init();
-//	adc_init();
+	adc_init();
 	stepper_init();
 
 	// Enable interrupts
 	sei();
 	
-	uint16_t steps = 1;
+	ButtonState selectButton, enterButton;
+	InitButtons(&selectButton, &PINB, &PORTB, &DDRB, 0b00000001);
+	InitButtons(&enterButton, &PINC, &PORTC, &DDRC, 0b00000010);
+	
+    uint8_t motor_speed = 0;
+    uint8_t disp = 1;
 	for(;;)
 	{
-        while(steps <= 210)
-        {
-            display_number(steps);
-            step_cw();
-            Sleep(5);
-            steps += 1;
+        if (GetButtons(&selectButton)) {
+            motor_speed = motor_speed ? 0 : 96;
+            if (motor_speed)
+                stepper_enable();
+            else
+                stepper_off();
         }
-        while(steps > 0)
-        {
-            display_number(steps);
-            step_ccw();
-            Sleep(2);
-            steps -= 1;
+        if (GetButtons(&enterButton)) {
+            if (disp) {
+                display_off();
+            } else {
+                display_on();
+            }
+            disp = !disp;
         }
+	
+	    if (motor_speed > 0) {
+	        step_cw();
+	        Sleep_kc(1000 - 10 * motor_speed);
+	    } else {
+	        Sleep(50);
+	    }
  	}
 }

@@ -32,41 +32,44 @@ void Sleep_kc(uint16_t kiloclocks)
 	TCCR1B = 0;				// stop the timer
 }
 
-// poll this function every 50ms or so.
-// here's how button presses work:
-// - a press is registered when a button is released.
-// - a hold is registered when the same button has been down
-//   for a specified number of cycles.  the button release
-//   following the hold does not register.
-uint16_t GetButtons(uint8_t pin, uint8_t mask)
+void InitButtons(ButtonState *state, volatile uint8_t *pin, volatile uint8_t *port, 
+                 volatile uint8_t *ddr, uint8_t mask)
 {
-	static uint8_t prevState = 0xff;
-	static uint8_t repeat = 0;
+    state->pin = pin;
+    state->mask = mask;
+    state->prevState = 0xFF;
+    state->repeat = 0;
+    
+    (*port) |= mask;  // enable pull-up resistors
+    (*ddr) &= ~mask; // set ports as inputs
+}
 
-	uint8_t curState = (pin & mask); // 1 = not pressed; 0 = pressed
+uint16_t GetButtons(ButtonState *state)
+{
+	uint8_t curState = (*(state->pin) & state->mask); // 1 = not pressed; 0 = pressed
 	
 	// if we've already registered a "hold"
-	if (repeat >= REPEAT_THRESHOLD) {
-		prevState = curState;
-		if (curState == mask)
-			repeat = 0;	// no buttons are down.
+	if (state->repeat >= REPEAT_THRESHOLD) {
+		state->prevState = curState;
+		if (curState == state->mask)
+			state->repeat = 0;	// no buttons are down.
 		return 0;
 	}
 
-	if (curState != prevState) {
+	if (curState != state->prevState) {
 		// truth table:
 		//  prev cur  released
 		//  0    0    0
 		//  0    1    1
 		//  1    0    0
 		//  1    1    0
-		uint8_t released = ~prevState & curState & mask;
-		prevState = curState;
+		uint8_t released = ~state->prevState & curState & state->mask;
+		state->prevState = curState;
 		return released;
-	} else if (curState != mask) {
+	} else if (curState != state->mask) {
 		// button(s) are being held
-		if (++repeat == REPEAT_THRESHOLD) {
-			return BUTTON_HOLD | (~curState & mask);
+		if (++state->repeat == REPEAT_THRESHOLD) {
+			return BUTTON_HOLD | (~curState & state->mask);
 		}
 	} 
 	
